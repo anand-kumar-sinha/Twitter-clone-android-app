@@ -12,10 +12,13 @@ import { UserState } from "../Context";
 import TweetFloat from "../Components/TweetFloat";
 import PostCard from "../Components/PostCard";
 import StatusModel from "../Components/StatusModel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 const UserProfile = ({ route, navigation }) => {
   const [switcher, setSwitcher] = useState("Posts");
   const [statusModel, setStatusModel] = useState(false);
+  const [followed, setFollowed] = useState(false);
   const { admin } = route.params;
   const { user, selectedPosts, loading } = UserState();
 
@@ -23,7 +26,53 @@ const UserProfile = ({ route, navigation }) => {
     if (user._id === admin._id) {
       navigation.navigate("Profile");
     }
+  });
+  useEffect(() => {
+    let follow;
+    if (admin._id) {
+      follow = user.followings.indexOf(admin._id);
+    }
+
+    console.log(follow)
+
+    if (follow === -1) {
+      setFollowed(false);
+      return;
+    }
+    if (follow > 0) {
+      setFollowed(true);
+      return;
+    }
   }, []);
+
+  const followHandler = async () => {
+    try {
+      const value = await AsyncStorage.getItem("token");
+
+      if (value) {
+        setFollowed(!followed);
+        const config = {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${value}`,
+          },
+          withCredentials: true,
+          sameSite: "None",
+        };
+
+        const { data } = await axios.get(
+          `https://backendtwitter.vercel.app/api/v1/users/follow/${admin._id}`,
+          config
+        );
+
+        if (data) {
+          console.log(data);
+        }
+      }
+    } catch (error) {
+      alert(error.response.data.message);
+    }
+  };
 
   return (
     <>
@@ -41,8 +90,13 @@ const UserProfile = ({ route, navigation }) => {
             <TouchableOpacity onPress={() => setStatusModel(true)}>
               <Image style={styles.userImage} source={{ uri: admin?.avatar }} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.btn}>
-              <Text style={styles.btnText}>Follow</Text>
+            <TouchableOpacity
+              style={[styles.btn, followed && styles.btnFollow]}
+              onPress={followHandler}
+            >
+              <Text style={[styles.btnText, followed && styles.txtFollow]}>
+                {followed ? "Unfollow" : "Follow"}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={{ paddingHorizontal: 10, marginTop: -50 }}>
@@ -187,5 +241,11 @@ const styles = StyleSheet.create({
   },
   bio: {
     color: "white",
+  },
+  btnFollow: {
+    backgroundColor: "white",
+  },
+  txtFollow: {
+    color: "#000",
   },
 });
